@@ -11,10 +11,10 @@ class GenericSAMLServiceProviderBackend(object):
 
     def get_user_from_saml(self, saml_authentication):
         return self.user_model._default_manager.get(
-            self.get_nameid_kwargs(saml_authentication))
+            **self.get_nameid_kwargs(saml_authentication))
 
     def create_user_from_saml(self, saml_authentication):
-        user = self.user_model(self.get_nameid_kwargs(saml_authentication))
+        user = self.user_model(**self.get_nameid_kwargs(saml_authentication))
         user.set_unusable_password()
 
         return user
