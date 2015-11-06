@@ -3,7 +3,7 @@ from django.conf import settings
 
 class GenericSAMLServiceProviderBackend(object):
     user_model = settings.AUTH_USER_MODEL
-    nameid_field = user_model.USERNAME_FIELD
+    nameid_field = 'username'
 
     def get_nameid_kwargs(self, saml_authentication):
         return {self.nameid_field: saml_authentication.get_nameid()}
