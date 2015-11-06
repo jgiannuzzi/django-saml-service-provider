@@ -2,52 +2,55 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 
-class GenericSAMLServiceProviderBackend(object):
+class SAMLUserProxy(object):
     user_model = get_user_model()
     nameid_field = user_model.USERNAME_FIELD
 
-    def get_nameid_kwargs(self, saml_authentication):
-        return {self.nameid_field: saml_authentication.get_nameid()}
+    def __init__(self, saml_authentication):
+        self.attributes = saml_authentication.get_attributes()
+        self.nameid = saml_authentication.get_nameid()
+        self.attribute_mappings = getattr(settings, 'SAML_USER_ATTRIBUTE_MAPPINGS', {})
 
-    def get_user_from_saml(self, saml_authentication):
-        return self.user_model._default_manager.get(
-            **self.get_nameid_kwargs(saml_authentication))
+    def get_user_kwargs(self):
+        return {self.nameid_field: self.nameid}
 
-    def create_user_from_saml(self, saml_authentication):
-        user = self.user_model(**self.get_nameid_kwargs(saml_authentication))
+    def get_user(self):
+        return self.user_model._default_manager.get(**self.get_user_kwargs())
+
+    def create_user(self):
+        user = self.user_model(**self.get_user_kwargs())
         user.set_unusable_password()
+
+        for user_attr, saml_attr in self.attribute_mappings.iteritems():
+            setattr(user, user_attr, self.attributes[saml_attr][0])
 
         return user
 
-    def get_or_create_user_from_saml(self, saml_authentication):
+    def get_or_create_user(self):
         try:
-            user = self.get_user_from_saml(saml_authentication)
+            user = self.get_user()
         except self.user_model.DoesNotExist:
-            user = self.create_user_from_saml(saml_authentication)
+            user = self.create_user()
             user.save()
 
         return user
+
+
+class SAMLServiceProviderBackend(object):
+    user_proxy_class = SAMLUserProxy
 
     def authenticate(self, saml_authentication=None):
         if not saml_authentication:  # Using another authentication method
             return None
 
         if saml_authentication.is_authenticated():
-            return self.get_or_create_user_from_saml(saml_authentication)
+            return self.user_proxy_class(saml_authentication).get_or_create_user()
 
         return None
 
     def get_user(self, user_id):
+        user_model = get_user_model()
         try:
-            return self.user_model._default_manager.get(pk=user_id)
-        except self.user_model.DoesNotExist:
+            return user_model._default_manager.get(pk=user_id)
+        except user_model.DoesNotExist:
             return None
-
-
-class SAMLServiceProviderBackend(GenericSAMLServiceProviderBackend):
-    def create_user_from_saml(self, saml_authentication):
-        attributes = saml_authentication.get_attributes()
-        user = super(SAMLServiceProviderBackend, self).create_user_from_saml(saml_authentication)
-        user.first_name = attributes['First name'][0]
-        user.last_name = attributes['Last name'][0]
-        return user
