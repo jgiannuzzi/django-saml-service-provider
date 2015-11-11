@@ -7,9 +7,17 @@ class SAMLUserProxy(object):
     nameid_field = user_model.USERNAME_FIELD
 
     def __init__(self, saml_authentication):
-        self.attributes = saml_authentication.get_attributes()
-        self.nameid = saml_authentication.get_nameid()
-        self.attribute_mappings = getattr(settings, 'SAML_USER_ATTRIBUTE_MAPPINGS', {})
+        self.saml_authentication = saml_authentication
+        self.attribute_mappings = getattr(settings,
+                                          'SAML_USER_ATTRIBUTE_MAPPINGS', {})
+
+    @property
+    def attributes(self):
+        return self.saml_authentication.get_attributes()
+
+    @property
+    def nameid(self):
+        return self.saml_authentication.get_nameid()
 
     def get_user_kwargs(self):
         return {self.nameid_field: self.nameid}
@@ -44,7 +52,8 @@ class SAMLServiceProviderBackend(object):
             return None
 
         if saml_authentication.is_authenticated():
-            return self.user_proxy_class(saml_authentication).get_or_create_user()
+            return self.user_proxy_class(
+                saml_authentication).get_or_create_user()
 
         return None
 
