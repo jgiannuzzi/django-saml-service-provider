@@ -8,6 +8,9 @@ from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from saml_service_provider.utils import prepare_from_django_request
 from django.conf import settings
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class SAMLMixin(object):
     def get_saml_settings(self):
@@ -42,8 +45,7 @@ class CompleteAuthenticationView(SAMLMixin, View):
             else:
                 raise PermissionDenied()
         else:
-            if settings.DEBUG:
-                print auth.get_last_error_reason()
+            logger.error(auth.get_last_error_reason(), exc_info=True)
             return HttpResponseBadRequest("Error when processing SAML Response: %s" % (', '.join(errors)))
 
 
