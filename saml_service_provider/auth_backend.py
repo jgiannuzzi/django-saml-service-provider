@@ -29,7 +29,7 @@ class SAMLUserProxy(object):
         user = self.user_model(**self.get_user_kwargs())
         user.set_unusable_password()
 
-        for user_attr, saml_attr in self.attribute_mappings.iteritems():
+        for user_attr, saml_attr in self.attribute_mappings.items():
             setattr(user, user_attr, self.attributes[saml_attr][0])
 
         return user
