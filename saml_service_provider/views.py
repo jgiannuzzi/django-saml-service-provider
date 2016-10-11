@@ -35,6 +35,8 @@ class CompleteAuthenticationView(SAMLMixin, View):
         errors = auth.get_errors()
         if not errors:
             if auth.is_authenticated():
+                request.session['saml_nameid'] = auth.get_nameid()
+                request.session['saml_session_index'] = auth.get_session_index()
                 user = authenticate(saml_authentication=auth)
                 login(self.request, user)
                 if 'RelayState' in req['post_data'] and \
@@ -47,6 +49,34 @@ class CompleteAuthenticationView(SAMLMixin, View):
         else:
             logger.error(auth.get_last_error_reason(), exc_info=True)
             return HttpResponseBadRequest("Error when processing SAML Response: %s" % (', '.join(errors)))
+
+
+class InitiateLogoutView(SAMLMixin, View):
+    def get(self, *args, **kwargs):
+        req = prepare_from_django_request(self.request)
+        auth = OneLogin_Saml2_Auth(req, self.get_saml_settings())
+
+        return HttpResponseRedirect(auth.logout(
+                name_id=request.session.get('saml_nameid'),
+                session_index=request.session.get('saml_session_index')
+                ))
+
+class CompleteLogoutView(SAMLMixin, View):
+    def post(self, request):
+        req = prepare_from_django_request(self.request)
+        dscb = lambda: self.request.session.flush()
+        auth = OneLogin_Saml2_Auth(req, self.get_saml_settings())
+
+        url = auth.process_slo(delete_session_cb=dscb)
+        errors = auth.get_errors()
+        if not errors:
+            if url:
+                return HttpResponseRedirect(url)
+            else:
+                return HttpResponseRedirect(settings.LOGOUT_REDIRECT_URL)
+        else:
+            logger.error(auth.get_last_error_reason(), exc_info=True)
+            return HttpResponseBadRequest('Error when processing SAML Logout Request: {}'.format(', '.join(errors)))
 
 
 class MetadataView(SAMLMixin, View):
