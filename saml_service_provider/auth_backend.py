@@ -10,6 +10,8 @@ class SAMLUserProxy(object):
         self.saml_authentication = saml_authentication
         self.attribute_mappings = getattr(settings,
                                           'SAML_USER_ATTRIBUTE_MAPPINGS', {})
+        self.username_mapping = getattr(settings,
+                                        'SAML_USER_NAME_MAPPING', 'nameid')
 
     @property
     def attributes(self):
@@ -19,8 +21,15 @@ class SAMLUserProxy(object):
     def nameid(self):
         return self.saml_authentication.get_nameid()
 
+    @property
+    def username(self):
+        if self.username_mapping == 'nameid':
+            return self.nameid
+        else:
+            return self.attributes[self.username_mapping][0]
+
     def get_user_kwargs(self):
-        return {self.nameid_field: self.nameid}
+        return {self.nameid_field: self.username}
 
     def get_user(self):
         return self.user_model._default_manager.get(**self.get_user_kwargs())
